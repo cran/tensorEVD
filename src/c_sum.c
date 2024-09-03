@@ -1,24 +1,17 @@
 #include "tensorEVD.h"
 
 //==============================================================
-// Calculate the entry-wise product
-//     A[irowA,icolA]*B[irowB,icolB]
+// Calculate the entry-wise sum
+//     a*A[irowA,icolA] + b*B[irowB,icolB]
 // A is of dimensions: nrowA,ncolA
 // B is of dimensions: nrowB,ncolB
-//
-// For squared matrices (irowA=icolA and irowB=icolB):
-//     A[irowA,icolA]*B[irowB,icolB] + C[irowA,icolA]*I[irowB,icolB]
-// A and C are of the same dimensions
-// B and I are of the same dimensions
 //==============================================================
-SEXP R_hadamard(SEXP a_,
-                SEXP nrowA_, SEXP ncolA_, SEXP A_,
-                SEXP nrowB_, SEXP ncolB_, SEXP B_,
-                SEXP C_,  // Optional matrix of the same dimension as A
-                SEXP irowA_, SEXP icolA_,
-                SEXP irowB_, SEXP icolB_,
-                SEXP out_, SEXP drop_,
-                SEXP makedimnames_, SEXP inplace_)
+SEXP R_sumvec(SEXP a_, SEXP nrowA_, SEXP ncolA_, SEXP A_,
+              SEXP b_, SEXP nrowB_, SEXP ncolB_, SEXP B_,
+              SEXP irowA_, SEXP icolA_,
+              SEXP irowB_, SEXP icolB_,
+              SEXP out_, SEXP drop_,
+              SEXP makedimnames_, SEXP inplace_)
 {
     int nprotect = 4;
 
@@ -27,6 +20,7 @@ SEXP R_hadamard(SEXP a_,
     int nrowB = INTEGER_VALUE(nrowB_);
     //int ncolB = INTEGER_VALUE(ncolB_);
     double a = NUMERIC_VALUE(a_);
+    double b = NUMERIC_VALUE(b_);
     int drop = asLogical(drop_);
     int makedimnames = asLogical(makedimnames_);
     int inplace = INTEGER_VALUE(inplace_);
@@ -98,27 +92,10 @@ SEXP R_hadamard(SEXP a_,
       }
     }
 
-    // Rprintf(" Making the Hadamard product ...\n");
+    // Rprintf(" Making the sum ...\n");
     size_t j;
     for(j=0; j<ncol; j++){
-      hadam_set(nrow, &a, A + (long long)nrowA*icolA[j], irowA, B + (long long)nrowB*icolB[j], irowB, out2 + nrow*j);
-    }
-
-    if(!Rf_isNull(C_)){
-      // Rprintf(" Making shifting ...\n");
-      PROTECT(C_ = AS_NUMERIC(C_));
-      double *C = NUMERIC_POINTER(C_);
-      nprotect++;
-
-      // The output is now a full matrix, thus a common shifting code is applied
-      size_t i;
-      for(j=0; j<ncol; j++){
-        for(i=0; i<nrow; i++){
-          if(irowB[i] == icolB[j]){
-            out2[nrow*j + i] += C[nrowA*(long long)icolA[j] + (long long)irowA[i]];
-          }
-        }
-      }
+      sum_set(nrow, &a, A + (long long)nrowA*icolA[j], irowA, &b, B + (long long)nrowB*icolB[j], irowB, out2 + nrow*j);
     }
 
     if(ismatrix && makedimnames && (inplace==0)){
